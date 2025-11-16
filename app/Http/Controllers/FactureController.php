@@ -70,4 +70,10 @@ class FactureController extends Controller
 
         return response()->json(['ok' => true]);
     }
+    public function show($id)
+{
+    $facture = Facture::with('user')->findOrFail($id);
+    return view('factures.show', compact('facture'));
+}
+
 }

@@ -38,3 +38,5 @@ Route::middleware('auth')->group(function () {
     // callback KprimePay
     Route::post('/paiement/callback', [FactureController::class, 'callback'])->name('paiement.callback');
 });
+Route::get('/factures/{id}', [\App\Http\Controllers\FactureController::class, 'show'])
+    ->name('factures.show');

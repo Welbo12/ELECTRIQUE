@@ -5,17 +5,17 @@
     <meta charset="UTF-8">
     <title>Tableau de bord</title>
 
-    <!-- Bootstrap -->
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Style custom -->
+    
     <style>
         body {
-            background: #fffdf3; /* léger ton clair pour aller avec le jaune CEET */
+            background: #fffdf3; 
             font-family: "Segoe UI", sans-serif;
         }
 
-        /* HEADER CEET */
+      
         .header-card {
             background: linear-gradient( #F8E71C);
             color: #E30613;
@@ -36,9 +36,9 @@
             color: white;
         }
 
-        /* Table */
+        
         .table thead {
-            background: #FFF6A3; /* jaune très clair */
+            background: #FFF6A3; 
         }
 
         .table thead th {
@@ -50,7 +50,7 @@
             border-radius: 16px;
         }
 
-        /* Badges */
+       
         .badge {
             padding: 6px 10px;
             border-radius: 50px;
@@ -58,14 +58,14 @@
         }
 
         .badge.bg-success {
-            background: #E30613 !important; /* rouge CEET pour "Payé" */
+            background: #E30613 !important;
         }
 
         .badge.bg-warning {
-            background: #F8E71C !important; /* Jaune CEET pour non payé */
+            background: #F8E71C !important; 
         }
 
-        /* BOUTON PAYER */
+        
         .btn-pay {
             background: #E30613;
             border: none;
@@ -80,7 +80,6 @@
             background: #b4040f;
         }
 
-        /* BOUTON PAYÉ (désactivé) */
         .btn-paid {
             background: #c7c7c7;
             border: none;
@@ -88,7 +87,7 @@
             padding: 6px 12px;
         }
 
-        /* TITRE */
+      
         .text-primary {
             color: #E30613 !important;
         }
@@ -98,7 +97,7 @@
 <body>
 <div class="container py-5">
 
-    <!-- HEADER -->
+    
     <div class="header-card shadow mb-4 d-flex justify-content-between align-items-center">
         <div>
             <h3 class="fw-bold mb-1"> {{ $user->firstname }} {{ $user->lastname }} </h3>
@@ -114,7 +113,7 @@
     </div>
 
 
-    <!-- FACTURES LIST -->
+    
     <div class="card shadow-sm">
         <div class="card-body">
 
@@ -138,7 +137,9 @@
 
                 <tbody>
                 @forelse($factures as $facture)
-                    <tr>
+                  <tr onclick="window.location='{{ route('factures.show', $facture->id) }}'"
+    style="cursor:pointer;">
+
                         <td class="fw-semibold">{{ $facture->reference }}</td>
 
                         <td>{{ $facture->mois }}/{{ $facture->annee }}</td>
@@ -159,7 +160,7 @@
                             @if($facture->statut !== 'payé')
                                 <form method="POST" action="{{ route('factures.payer', $facture) }}">
                                     @csrf
-                                    <button class="btn btn-pay">Payer</button>
+                                    <button class="btn btn-pay" onclick="event.stopPropagation()">Payer</button>
                                 </form>
                             @else
                                 <button class="btn btn-paid" disabled>Payé</button>
