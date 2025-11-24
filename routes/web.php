@@ -2,7 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
-  use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\FactureController;
 
 
 /*
@@ -17,10 +18,7 @@ use App\Http\Controllers\LoginController;
 */
 
 Route::get('/', function () {
-  
-
-    return view('welcome');
-
+    return redirect()->route('login');
 });
 // Route pour inscription
 Route::get('/register', [RegisterController::class, 'showForm'])->name('register');
@@ -29,14 +27,14 @@ Route::get('/login', [LoginController::class, 'showForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-Route::get('/dashboard', [LoginController::class, 'dashboard'])->middleware('auth')->name('dashboard');
-use App\Http\Controllers\FactureController;
-
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [FactureController::class, 'index'])->name('dashboard');
     Route::post('/factures/{facture}/payer', [FactureController::class, 'payer'])->name('factures.payer');
-    // callback KprimePay
-    Route::post('/paiement/callback', [FactureController::class, 'callback'])->name('paiement.callback');
 });
+
+// callback KprimePay (appel externe)
+Route::post('/paiement/callback', [FactureController::class, 'callback'])->name('paiement.callback');
 Route::get('/factures/{id}', [\App\Http\Controllers\FactureController::class, 'show'])
     ->name('factures.show');
+
+    

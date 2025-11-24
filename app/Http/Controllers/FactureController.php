@@ -19,57 +19,122 @@ class FactureController extends Controller
     }
 
     // Lancer le paiement (initier via KprimePayService)
+    // public function payer(Request $request, Facture $facture, KprimePayService $kprime)
+    // {
+    //     // Vérifier la propriété de la facture
+    //     if ($facture->user_id !== Auth::id()) {
+    //         abort(403);
+    //     }
+    //     if ($facture->statut === 'payé') {
+    //         return back()->with('error', 'Cette facture est déjà payée.');
+    //     }
+
+    //     // Ex : appeler le service KprimePay pour initier paiement
+    //     $referenceTransaction = 'TX-' . now()->format('YmdHis') . '-' . $facture->id;
+    //     $result = $kprime->initierPaiement(
+    //         $facture->montant,
+    //         $referenceTransaction,
+    //         'Paiement facture ' . $facture->reference
+    //     );
+
+    //     // Le service doit renvoyer une URL de paiement (payment_url). On redirige.
+    //     if (!empty($result['payment_url'])) {
+    //         // Tu peux stocker la reference de transaction dans la facture si voulu
+    //         $facture->update(['reference' => $facture->reference]); // facultatif
+    //         return redirect()->away($result['payment_url']);
+    //     }
+
+    //     return back()->with('error', 'Impossible d’initier le paiement pour le moment.');
+    // }
+
+
     public function payer(Request $request, Facture $facture, KprimePayService $kprime)
     {
-        // Vérifier la propriété de la facture
-        if ($facture->user_id !== Auth::id()) {
-            abort(403);
-        }
-        if ($facture->statut === 'payé') {
-            return back()->with('error', 'Cette facture est déjà payée.');
-        }
+    if ($facture->user_id !== Auth::id()) {
+        abort(403);
+    }
 
-        // Ex : appeler le service KprimePay pour initier paiement
-        $referenceTransaction = 'TX-' . now()->format('YmdHis') . '-' . $facture->id;
-        $result = $kprime->initierPaiement(
-            $facture->montant,
-            $referenceTransaction,
-            'Paiement facture ' . $facture->reference
-        );
+    if ($facture->statut === 'payé') {
+        return back()->with('error', 'Cette facture est déjà payée.');
+    }
 
-        // Le service doit renvoyer une URL de paiement (payment_url). On redirige.
-        if (!empty($result['payment_url'])) {
-            // Tu peux stocker la reference de transaction dans la facture si voulu
-            $facture->update(['reference' => $facture->reference]); // facultatif
-            return redirect()->away($result['payment_url']);
-        }
+    $referenceTransaction = 'TX-' . now()->timestamp . '-' . $facture->id;
 
-        return back()->with('error', 'Impossible d’initier le paiement pour le moment.');
+        $facture->update([
+            'transaction_reference' => $referenceTransaction,
+        ]);
+
+    $response = $kprime->initierPaiement(
+        $facture->montant,
+        $referenceTransaction,
+        "Paiement facture " . $facture->reference
+    );
+
+    if (!empty($response['payment_url'])) {
+        return redirect()->away($response['payment_url']);
+    }
+
+        return back()->with('error', 'Erreur API KPrimePay : ' . ($response['message'] ?? 'Inconnue'));
     }
 
     // Callback (exemple simplifié)
-    public function callback(Request $request)
-    {
-        // Récupère les paramètres envoyés par KprimePay
-        $transactionId = $request->input('transaction_id');
-        $reference = $request->input('reference');
-        $status = $request->input('status'); // ex: 'success'
+    // public function callback(Request $request)
+    // {
+    //     // Récupère les paramètres envoyés par KprimePay
+    //     $transactionId = $request->input('transaction_id');
+    //     $reference = $request->input('reference');
+    //     $status = $request->input('status'); // ex: 'success'
 
-        // Ici tu vérifies via l'API KprimePay le statut réel puis tu mets à jour ta facture
-        // Exemple simplifié :
-        if ($status === 'success') {
-            // trouver la facture via reference (ou autre)
-            $facture = Facture::where('reference', $reference)->first();
-            if ($facture) {
-                $facture->update([
-                    'statut' => 'payé',
-                    'paiement_date' => now(),
-                ]);
-            }
+    //     // Ici tu vérifies via l'API KprimePay le statut réel puis tu mets à jour ta facture
+    //     // Exemple simplifié :
+    //     if ($status === 'success') {
+    //         // trouver la facture via reference (ou autre)
+    //         $facture = Facture::where('reference', $reference)->first();
+    //         if ($facture) {
+    //             $facture->update([
+    //                 'statut' => 'payé',
+    //                 'paiement_date' => now(),
+    //             ]);
+    //         }
+    //     }
+
+    //     return response()->json(['ok' => true]);
+    // }
+
+    public function callback(Request $request, KprimePayService $kprime)
+    {
+        $reference = $request->input('reference');
+
+        if (!$reference) {
+            return response()->json(['error' => true, 'message' => 'Référence manquante'], 422);
+        }
+
+        $facture = Facture::where('transaction_reference', $reference)->first();
+
+        if (!$facture) {
+            return response()->json(['error' => true, 'message' => 'Facture inconnue'], 404);
+        }
+
+        $verification = $kprime->verifierPaiement($reference);
+        $status = $verification['status'] ?? $verification['data']['status'] ?? null;
+
+        if (($verification['error'] ?? false) || $status !== 'success') {
+            return response()->json([
+                'error' => true,
+                'message' => $verification['message'] ?? 'Paiement non confirmé',
+            ], 422);
+        }
+
+        if ($facture->statut !== 'payé') {
+            $facture->update([
+                'statut' => 'payé',
+                'paiement_date' => now(),
+            ]);
         }
 
         return response()->json(['ok' => true]);
     }
+
     public function show($id)
 {
     $facture = Facture::with('user')->findOrFail($id);

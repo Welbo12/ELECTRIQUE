@@ -12,6 +12,7 @@ class Facture extends Model
     protected $fillable = [
         'user_id',
         'reference',
+        'transaction_reference',
         'montant',
         'mois',
         'annee',
