@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 
 class KprimePayService
@@ -9,39 +10,57 @@ class KprimePayService
     private $merchantId;
     private $secret;
     private $baseUrl;
+    private $gateway;
 
     public function __construct()
     {
         $this->merchantId = env('KPRIME_MERCHANT_ID');
         $this->secret = env('KPRIME_SECRET_KEY');
         $this->baseUrl = rtrim((string) env('KPRIME_BASE_URL'), '/');
+        $this->gateway = env('KPRIME_GATEWAY', 'MIXX-YAS-TG');
 
         if (!$this->merchantId || !$this->secret || !$this->baseUrl) {
             throw new \RuntimeException('Configuration KPrimePay manquante (.env).');
         }
     }
 
-    
-    public function initierPaiement($montant, $reference, $description)
+    /**
+     * Initie un push mobile money (USSD).
+     */
+    public function initierPaiement(array $data)
     {
-        $payload = [
-            "merchantId"   => $this->merchantId,
-            "amount"       => (float)$montant,
-            "reference"    => $reference,
-            "description"  => $description,
-            "currency"     => "XOF",
-            "callbackUrl"  => route('paiement.callback'),
-            "returnUrl"    => url('/dashboard')
+        $required = [
+            'transaction_id',
+            'customer_name',
+            'customer_email',
+            'amount',
+            'phone_number',
+            'description',
         ];
 
-        
-        $signature = hash_hmac('sha256', json_encode($payload), $this->secret);
+        foreach ($required as $field) {
+            if (!Arr::has($data, $field)) {
+                throw new \InvalidArgumentException("Champ {$field} manquant pour l'appel KPrimePay.");
+            }
+        }
+
+        $payload = [
+            "merchant_number" => $this->merchantId,
+            "transaction_id"  => $data['transaction_id'],
+            "customer_name"   => $data['customer_name'],
+            "customer_email"  => $data['customer_email'],
+            "amount"          => (float) $data['amount'],
+            "with_fees"       => (int) ($data['with_fees'] ?? 0),
+            "gateway"         => $data['gateway'] ?? $this->gateway,
+            "phone_number"    => $data['phone_number'],
+            "description"     => $data['description'],
+            "custom_meta_data"=> $data['custom_meta_data'] ?? [],
+        ];
 
         $response = Http::withHeaders([
-            "x-api-key"  => $this->secret,
-            "Signature"  => $signature,
-            "Content-Type" => "application/json"
-        ])->post($this->baseUrl . "/payment/init", $payload);
+            "auth_token"   => $this->secret,
+            "Content-Type" => "application/json",
+        ])->post($this->baseUrl . "/mobilemoney/push-ussd", $payload);
 
         if ($response->successful()) {
             return $response->json();
@@ -53,13 +72,11 @@ class KprimePayService
         ];
     }
 
-
-   
     public function verifierPaiement($reference)
     {
         $response = Http::withHeaders([
-            "x-api-key" => $this->secret
-        ])->get($this->baseUrl . "/payment/status/" . $reference);
+            "auth_token" => $this->secret
+        ])->get($this->baseUrl . "/transactions/" . $reference);
 
         if ($response->successful()) {
             return $response->json();

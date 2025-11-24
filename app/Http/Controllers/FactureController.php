@@ -50,31 +50,49 @@ class FactureController extends Controller
 
     public function payer(Request $request, Facture $facture, KprimePayService $kprime)
     {
-    if ($facture->user_id !== Auth::id()) {
-        abort(403);
-    }
+        if ($facture->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-    if ($facture->statut === 'payé') {
-        return back()->with('error', 'Cette facture est déjà payée.');
-    }
+        if ($facture->statut === 'payé') {
+            return back()->with('error', 'Cette facture est déjà payée.');
+        }
 
-    $referenceTransaction = 'TX-' . now()->timestamp . '-' . $facture->id;
+        $facture->loadMissing('user');
+
+        if (empty($facture->user->phone)) {
+            return back()->with('error', 'Numéro de téléphone manquant sur votre profil.');
+        }
+
+        $referenceTransaction = 'TX-' . now()->timestamp . '-' . $facture->id;
 
         $facture->update([
             'transaction_reference' => $referenceTransaction,
         ]);
 
-    $response = $kprime->initierPaiement(
-        $facture->montant,
-        $referenceTransaction,
-        "Paiement facture " . $facture->reference
-    );
+        $clientNom = trim(($facture->user->firstname ?? '') . ' ' . ($facture->user->lastname ?? ''));
 
-    if (!empty($response['payment_url'])) {
-        return redirect()->away($response['payment_url']);
-    }
+        $response = $kprime->initierPaiement([
+            'transaction_id' => $referenceTransaction,
+            'customer_name' => $clientNom ?: 'Client CEET',
+            'customer_email' => $facture->user->email ?? 'client@example.com',
+            'amount' => $facture->montant,
+            'phone_number' => $facture->user->phone ?? '',
+            'description' => "Paiement facture " . $facture->reference,
+            'with_fees' => env('KPRIME_WITH_FEES', 0),
+            'custom_meta_data' => [
+                'facture_id' => $facture->id,
+                'user_id' => $facture->user->id,
+            ],
+        ]);
 
-        return back()->with('error', 'Erreur API KPrimePay : ' . ($response['message'] ?? 'Inconnue'));
+        if (($response['status'] ?? false) === true) {
+            return back()->with('success', 'Demande envoyée. Validez le paiement sur votre téléphone.');
+        }
+
+        $message = $response['message'] ?? ($response['errors']['transaction_id'][0] ?? 'Inconnue');
+
+        return back()->with('error', 'Erreur API KPrimePay : ' . $message);
     }
 
     // Callback (exemple simplifié)
