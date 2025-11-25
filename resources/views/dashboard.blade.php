@@ -161,10 +161,7 @@
 
                         <td class="text-center">
                             @if($facture->statut !== 'payé')
-                                <form method="POST" action="{{ route('factures.payer', $facture) }}">
-                                    @csrf
-                                    <button class="btn btn-pay" onclick="event.stopPropagation()">Payer</button>
-                                </form>
+                                <a class="btn btn-pay" href="{{ route('factures.show', $facture) }}" onclick="event.stopPropagation()">Voir &amp; payer</a>
                             @else
                                 <button class="btn btn-paid" disabled>Payé</button>
                             @endif

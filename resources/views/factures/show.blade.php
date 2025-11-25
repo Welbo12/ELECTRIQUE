@@ -12,6 +12,10 @@
 
    
 
+    <div class="mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-link">&larr; Retour au tableau de bord</a>
+    </div>
+
     <div class="card shadow">
         <div class="card-header bg-warning">
             <h4 class="fw-bold">Détails de la facture</h4>
@@ -62,6 +66,23 @@
                 </p>
             @endif
 
+            <div class="mt-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="mb-1"><strong>Client :</strong> {{ $facture->user->firstname }} {{ $facture->user->lastname }}</p>
+                    <p class="mb-1"><strong>Téléphone :</strong> {{ $facture->user->phone ?? '—' }}</p>
+                    <p class="mb-0"><strong>Email :</strong> {{ $facture->user->email ?? '—' }}</p>
+                </div>
+                <div>
+                    @if($facture->statut !== 'payé')
+                        <form method="POST" action="{{ route('factures.payer', $facture) }}">
+                            @csrf
+                            <button class="btn btn-pay btn-danger">Confirmer et payer</button>
+                        </form>
+                    @else
+                        <button class="btn btn-success" disabled>Facture déjà payée</button>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 </div>
